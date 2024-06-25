@@ -236,14 +236,9 @@ def new_context(context, **kw):
 @jinja2.contextfunction
 def persona_preview(context, persona, size='large', linked=True, extra=None,
                     details=False, title=False, caption=False, url=None):
-    preview_map = {'large': persona.preview_url,
-                   'small': persona.thumb_url}
-    addon = persona.addon
+    """We've removed the persona preview element"""
     c = dict(context.items())
-    c.update({'persona': persona, 'addon': addon, 'linked': linked,
-              'size': size, 'preview': preview_map[size], 'extra': extra,
-              'details': details, 'title': title, 'caption': caption,
-              'url_': url})
+    c.update({'persona': None})
     return c
 
 

@@ -1,6 +1,7 @@
 import hashlib
 import os
 import uuid
+import csv
 from datetime import datetime
 
 from django.conf import settings
@@ -664,28 +665,62 @@ def migrate_lwts_to_static_themes(ids, **kw):
 
 @task
 @use_primary_db
-def delete_addon_not_compatible_with_firefoxes(ids, **kw):
+def delete_addon_not_compatible_with_thunderbird(ids, **kw):
     """
     Delete the specified add-ons.
-    Used by process_addons --task=delete_addons_not_compatible_with_firefoxes
+    Used by process_addons --task=delete_addons_not_compatible_with_thunderbird
     """
     log.info(
-        'Deleting addons not compatible with firefoxes %d-%d [%d].',
+        'Deleting addons not compatible with thunderbird %d-%d [%d].',
         ids[0], ids[-1], len(ids))
     qs = Addon.objects.filter(id__in=ids)
     for addon in qs:
         with transaction.atomic():
+            # Remove addon appsupport versions for android and firefox
             addon.appsupport_set.filter(
-                app__in=(amo.FIREFOX.id, amo.ANDROID.id)).delete()
+                app__in=(amo.ANDROID.id, amo.FIREFOX.id)).delete()
             addon.delete()
 
 
 @task
 @use_primary_db
+def output_personas(ids, **kw):
+    """
+    Output the specified add-ons.
+    Used by process_addons --task=output_personas
+    """
+    log.info(
+        'Outputting personas %d-%d [%d].',
+        ids[0], ids[-1], len(ids))
+    qs = Addon.objects.filter(pk__in=ids)
+    persona_csv = csv.writer(open('personas.csv', 'ab'))
+    for addon in qs:
+        persona_csv.writerow([addon.id, addon.name, addon.get_detail_url()])
+
+@task
+@use_primary_db
+def delete_personas(ids, **kw):
+    """
+    Delete the specified add-ons.
+    Used by process_addons --task=delete_personas
+    """
+    log.info(
+        'Deleting personas %d-%d [%d].',
+        ids[0], ids[-1], len(ids))
+    qs = Addon.objects.filter(pk__in=ids)
+    pause_all_tasks()
+    for addon in qs:
+        with transaction.atomic():
+            addon.persona.delete()
+            addon.delete(hard=True)
+    resume_all_tasks()
+
+@task
+@use_primary_db
 def delete_obsolete_applicationsversions(**kw):
-    """Delete ApplicationsVersions objects not relevant for Firefoxes."""
+    """Delete ApplicationsVersions objects not relevant for Thunderbird/Seamonkey."""
     qs = ApplicationsVersions.objects.exclude(
-        application__in=(amo.FIREFOX.id, amo.ANDROID.id))
+        application__in=(amo.THUNDERBIRD.id, amo.SEAMONKEY.id))
     for av in qs.iterator():
         av.delete()
 
